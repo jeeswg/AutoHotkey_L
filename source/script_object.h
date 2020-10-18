@@ -445,3 +445,34 @@ public:
 	void DebugWriteProperty(IDebugProperties *, int aPage, int aPageSize, int aDepth);
 #endif
 };
+
+
+//
+// RangeObject
+//
+
+class RangeObject : public ObjectBase
+{
+	bool mHasFloats;
+	__int64 miStart;
+	__int64 miEnd;
+	__int64 miStep;
+	double mfStart;
+	double mfEnd;
+	double mfStep;
+	__int64 mCount;
+	__int64 mIndex;
+
+	RangeObject() : mHasFloats(false), miStart(0), miEnd(0), miStep(0), mfStart(0), mfEnd(0), mfStep(0), mCount(0), mIndex(0) {}
+
+	~RangeObject()
+	{
+	}
+	
+public:
+	static RangeObject *Create(__int64 aStart, __int64 aEnd, __int64 aStep);
+	static RangeObject *Create(double aStart, double aEnd, double aStep);
+
+	ResultType STDMETHODCALLTYPE Invoke(ExprTokenType &aResultToken, ExprTokenType &aThisToken, int aFlags, ExprTokenType *aParam[], int aParamCount);
+	IObject_Type_Impl("RangeObject")
+};
