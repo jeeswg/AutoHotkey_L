@@ -34,6 +34,9 @@ GNU General Public License for more details.
 #include <endpointvolume.h> // for SoundSet/SoundGet.
 #pragma warning(pop)
 
+#include "wincrypt.h" // for Base64/Hex functions
+#pragma comment(lib, "Crypt32.lib") // prevent 'unresolved external symbol' error message
+
 #define PCRE_STATIC             // For RegEx. PCRE_STATIC tells PCRE to declare its functions for normal, static
 #include "lib_pcre/pcre/pcre.h" // linkage rather than as functions inside an external DLL.
 
@@ -18787,6 +18790,103 @@ BIF_DECL(BIF_Exception)
 		MsgBox(ERR_OUTOFMEM);
 		aResultToken.value_int64 = 0;
 	}
+}
+
+
+
+BIF_DECL(BIF_HexBase64Get)
+{
+	bool is_hex = (ctoupper(aResultToken.marker[0]) == 'H');
+	BYTE *address = (BYTE *)ParamIndexToInt64(0);
+	__int64 size = ParamIndexToInt64(1);
+	DWORD chars = 0;
+	DWORD flags = CRYPT_STRING_NOCRLF | (is_hex?CRYPT_STRING_HEXRAW:CRYPT_STRING_BASE64);
+
+	aResultToken.symbol = SYM_STRING;
+	if (size <= 0)
+	{
+		aResultToken.marker = _T("");
+		if (size < 0)
+			_f_throw(ERR_PARAM2_INVALID);
+		return;
+	}
+
+	if (!g_os.IsWinVistaOrLater())
+		// Hex: Result will contain CRLFs and spaces, stripped below.
+		// Base64: Result will contain CRLFs, stripped below.
+		flags = is_hex ? CRYPT_STRING_HEX : CRYPT_STRING_BASE64;
+
+	CryptBinaryToString(address, (DWORD)size, flags, NULL, (DWORD*)&chars);
+	TCHAR *text = new TCHAR[chars];
+	CryptBinaryToString(address, (DWORD)size, flags, text, (DWORD*)&chars);
+
+	if (!g_os.IsWinVistaOrLater())
+	{
+		LPTSTR pos = text;
+		LPTSTR end = text + _tcslen(text);
+		TCHAR *cp;
+		for (cp = text; *cp; ++cp)
+		{
+			if (*cp > ' ')
+				*pos++ = *cp;
+		}
+		*pos = '\0';
+	}
+
+	if (is_hex)
+		CharUpper(text);
+	aResultToken.marker = text;
+	aResultToken.mem_to_free = text;
+	aResultToken.marker_length = _tcslen(text);
+}
+
+
+
+BIF_DECL(BIF_HexBase64Put)
+{
+	bool is_hex = (ctoupper(aResultToken.marker[0]) == 'H');
+	TCHAR *text = (TCHAR *)ParamIndexToString(0);
+	__int64 chars = ParamIndexIsOmitted(2) ? _tcslen(text) : ParamIndexToInt64(2);
+	DWORD size = 0;
+	DWORD flags = is_hex ? CRYPT_STRING_HEX : CRYPT_STRING_BASE64;
+
+	if (is_hex && (chars & 1))
+	{
+		aResultToken.symbol = SYM_STRING;
+		aResultToken.marker = _T("");
+		_f_throw(_T("Char count is odd."));
+		return;
+	}
+	if (chars < 0)
+	{
+		aResultToken.symbol = SYM_STRING;
+		aResultToken.marker = _T("");
+		_f_throw(ERR_PARAM3_INVALID);
+		return;
+	}
+
+	if (ParamIndexIsOmitted(1))
+	{
+		if (ParamIndexIsOmitted(2))
+		{
+			CryptStringToBinary(text, (DWORD)chars, flags, NULL, (DWORD*)&size, NULL, NULL);
+			aResultToken.symbol = SYM_INTEGER;
+			aResultToken.value_int64 = (__int64)size;
+		}
+		else
+		{
+			aResultToken.symbol = SYM_STRING;
+			aResultToken.marker = _T("");
+			_f_throw(ERR_PARAM2_INVALID);
+		}
+		return;
+	}
+
+	BYTE *address = (BYTE *)ParamIndexToInt64(1);
+	CryptStringToBinary(text, (DWORD)chars, flags, NULL, (DWORD*)&size, NULL, NULL);
+	CryptStringToBinary(text, (DWORD)chars, flags, address, (DWORD*)&size, NULL, NULL);
+	aResultToken.symbol = SYM_INTEGER;
+	aResultToken.value_int64 = (__int64)size;
 }
 
 
