@@ -18791,6 +18791,94 @@ BIF_DECL(BIF_Exception)
 
 
 
+BIF_DECL(BIF_StrMatch)
+{
+		TCHAR mode = ctoupper(aResultToken.marker[4]); // Get 5th char of function name.
+		aResultToken.symbol = SYM_STRING;
+		aResultToken.marker = _T("");
+
+		LPTSTR haystack = ParamIndexToString(0, aResultToken.buf);
+		int result = 0;
+		int len_needle = 0;
+		int len_haystack = _tcslen(haystack);
+
+		StringCaseSenseType string_case_sense;
+		if (ParamIndexIsOmitted(2))
+			string_case_sense = SCS_INSENSITIVE;
+		else
+		{
+			TCHAR scs_buf[MAX_NUMBER_SIZE];
+			LPTSTR scs = ParamIndexToString(2, scs_buf);
+			string_case_sense = (!_tcsicmp(scs, _T("0")) || !_tcsicmp(scs, _T("Off"))) ? SCS_INSENSITIVE
+				: (!_tcsicmp(scs, _T("1")) || !_tcsicmp(scs, _T("On"))) ? SCS_SENSITIVE
+				: !_tcsicmp(scs, _T("Locale")) ? SCS_INSENSITIVE_LOCALE
+				: SCS_INVALID;
+			if (string_case_sense == SCS_INVALID)
+			{
+				aResultToken.symbol = SYM_STRING;
+				aResultToken.marker = _T("");
+				_f_throw(ERR_PARAM3_INVALID);
+			}
+		}
+
+		if (Object *obj = dynamic_cast<Object *>(TokenToObject(*aParam[1]))) // Needle object.
+		{
+			int aNeedleCount = 0;
+			LPTSTR *aNeedleList = NULL;
+			aNeedleCount = obj->GetNumericItemCount();
+			aNeedleList = (LPTSTR *)_alloca(aNeedleCount * sizeof(LPTSTR *));
+			if (!obj->ArrayToStrings(aNeedleList, aNeedleCount, aNeedleCount))
+				// Array contains something other than a string.
+				_f_throw(ERR_PARAM2_INVALID);
+				
+			len_haystack = _tcslen(haystack);
+			for (int i = 0; i < aNeedleCount; ++i)
+			{
+				LPTSTR needle = aNeedleList[i];
+				len_needle = _tcslen(needle);
+				if (len_haystack < len_needle)
+					result = 0;
+				else if (mode == 'Q') // StrEquals
+					result = !tcscmp2(haystack, needle, string_case_sense);
+				else if (mode == 'O') // StrContains
+					result = !!tcsstr2(haystack, needle, string_case_sense);
+				else if (mode == 'T') // StrStarts
+					result = !tcscmpn2(haystack, needle, string_case_sense, len_needle);
+				else if (mode == 'N') // StrEnds
+					result = !tcscmp2(haystack+len_haystack-len_needle, needle, string_case_sense);
+
+				if (result)
+				{
+					result = i + 1;
+					break;
+				}
+			}
+		}
+		else
+		{
+			TCHAR needle_buf[MAX_NUMBER_SIZE];
+			LPTSTR needle = ParamIndexToString(1, needle_buf);
+			len_needle = _tcslen(needle);
+
+			if (len_haystack < len_needle)
+				result = 0;
+			else if (mode == 'Q') // StrEquals
+				result = !tcscmp2(haystack, needle, string_case_sense);
+			else if (mode == 'O') // StrContains
+				result = !!tcsstr2(haystack, needle, string_case_sense);
+			else if (mode == 'T') // StrStarts
+				result = !tcscmpn2(haystack, needle, string_case_sense, len_needle);
+			else if (mode == 'N') // StrEnds
+				result = !tcscmp2(haystack+len_haystack-len_needle, needle, string_case_sense);
+		}
+
+		aResultToken.symbol = SYM_INTEGER;
+		aResultToken.value_int64 = result;
+		return;
+}
+
+
+
 ////////////////////////////////////////////////////////
 // HELPER FUNCTIONS FOR TOKENS AND BUILT-IN FUNCTIONS //
 ////////////////////////////////////////////////////////
