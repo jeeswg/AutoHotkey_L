@@ -18791,6 +18791,58 @@ BIF_DECL(BIF_Exception)
 
 
 
+BIF_DECL(BIF_BetweenClamp)
+{
+	ExprTokenType param;
+	TCHAR mode = ctoupper(aResultToken.marker[0]); // Get 1st char of function name.
+	bool has_floats = false;
+	for (int i = 0; i < 3; ++i)
+	{
+		ParamIndexToNumber(i, param);
+		switch (param.symbol)
+		{
+			case SYM_INTEGER:
+				break;
+			case SYM_FLOAT:
+				has_floats = true;
+				break;
+			default:
+				aResultToken.symbol = SYM_STRING;
+				aResultToken.marker = _T("");
+				_f_throw(i == 0 ? ERR_PARAM1_INVALID : i == 1 ? ERR_PARAM2_INVALID : ERR_PARAM3_INVALID);
+				return;
+		}
+	}
+
+	if (has_floats)
+	{
+		double fNum = ParamIndexToDouble(0);
+		double fLow = ParamIndexToDouble(1);
+		double fHigh = ParamIndexToDouble(2);
+		aResultToken.symbol = SYM_FLOAT;
+		if (mode == 'B') // Between.
+			aResultToken.value_double = (fLow <= fNum) && (fNum <= fHigh);
+		else // Clamp.
+		{
+			double fTemp = fNum < fHigh ? fNum : fHigh;
+			aResultToken.value_double = fLow > fTemp ? fLow : fTemp;
+		}
+	}
+	else
+	{
+		__int64 iNum = ParamIndexToInt64(0);
+		__int64 iLow = ParamIndexToInt64(1);
+		__int64 iHigh = ParamIndexToInt64(2);
+		aResultToken.symbol = SYM_INTEGER;
+		if (mode == 'B') // Between.
+			aResultToken.value_int64 = (iLow <= iNum) && (iNum <= iHigh);
+		else // Clamp.
+			aResultToken.value_int64 = max(iLow, min(iNum, iHigh));
+	}
+}
+
+
+
 ////////////////////////////////////////////////////////
 // HELPER FUNCTIONS FOR TOKENS AND BUILT-IN FUNCTIONS //
 ////////////////////////////////////////////////////////
