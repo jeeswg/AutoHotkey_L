@@ -243,7 +243,7 @@ public:
 	// Use unsigned to avoid the need to check for negatives.
 	typedef UINT index_t;
 
-protected:
+//protected: // [FIXME] Uncomment this line.
 	typedef LPTSTR name_t;
 	typedef FlatVector<TCHAR> String;
 
@@ -541,6 +541,8 @@ public:
 	template<typename TokenT>
 	ResultType InsertAt(index_t aIndex, TokenT aValue[], index_t aCount);
 	void       RemoveAt(index_t aIndex, index_t aCount);
+	void       Sort(index_t aIndex, index_t aCount); // [FIXME] Fix parameters.
+	//int        DemoSortStrings(const void *a1, const void *a2); // [FIXME] Fix or remove.
 
 	bool Append(ExprTokenType &aValue);
 	bool Append(LPTSTR aValue, size_t aValueLength = -1) { return Append(ExprTokenType(aValue, aValueLength)); }
@@ -570,7 +572,8 @@ public:
 		M_Has,
 		M_Delete,
 		M_Clone,
-		M___Enum
+		M___Enum,
+		M_Sort
 	};
 	static ObjectMember sMembers[];
 	static Object *sPrototype;

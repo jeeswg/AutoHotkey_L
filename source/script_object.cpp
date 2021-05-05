@@ -1850,6 +1850,62 @@ ResultType Array::SetLength(index_t aNewLength)
 	return OK;
 }
 
+int DemoSortReverseNoSort(const void *a1, const void *a2) // [FIXME] Remove/expand.
+{
+	INT_PTR item1 = *(INT_PTR *)a1; // Address.
+	INT_PTR item2 = *(INT_PTR *)a2; // Address.
+	return item2 > item1 ? 1 : -1; // Stable sort. Reverse.
+}
+
+// Issues: [FIXME]
+// Add 'Array::' to function name to access Variant type.
+// But then qsort might complain.
+// And making the function static might make Visual Studio complain.
+// Quick fix: make Variant public.
+int DemoSortStrings(const void *a1, const void *a2) // [FIXME] Remove/expand.
+{
+	ExprTokenType token1;
+	ExprTokenType token2;
+	(*(Array::Variant *)*(INT_PTR *)a1).ToToken(token1);
+	(*(Array::Variant *)*(INT_PTR *)a2).ToToken(token2);
+	TCHAR buf1[MAX_NUMBER_SIZE];
+	TCHAR buf2[MAX_NUMBER_SIZE];
+	LPTSTR value1 = TokenToString(token1, buf1);
+	LPTSTR value2 = TokenToString(token2, buf2);
+	int result = _tcsicmp(value1, value2);
+	if (result)
+		return result;
+	INT_PTR item1 = *(INT_PTR *)a1; // Address.
+	INT_PTR item2 = *(INT_PTR *)a2; // Address.
+	return item1 > item2 ? 1 : -1; // Stable sort.
+}
+
+void Array::Sort(index_t aOptions, index_t aFunction) // [FIXME] Handle parameters.
+{
+	if (mLength < 2)
+		return;
+	if (mItem+mLength-mItem != mLength)
+		MessageBox(NULL, _T("Array is nonstandard."), _T("title"), MB_OK); // [FIXME] Throw.
+		// _o_throw(_T("Array is nonstandard.")); // [FIXME] Complains re. aResultToken.
+
+	Variant **ptr_array = (Variant **)_alloca(mLength * sizeof(Variant *));
+	UINT i;
+	Variant *ptr = mItem;
+	for (i = 0; i < mLength; ++i, ++ptr)
+		ptr_array[i] = ptr;
+
+	// Both work:
+	// qsort(ptr_array, mLength, sizeof(void *), DemoSortReverseNoSort);
+	qsort(ptr_array, mLength, sizeof(void *), DemoSortStrings);
+
+	int size = sizeof(Variant);
+	char *buf = new char[mLength*size];
+	char *pos = buf;
+	for (i = 0; i < mLength; ++i, pos += size)
+		memcpy(pos, (char *)ptr_array[i], size);
+	memcpy(mItem, buf, mLength*size);
+}
+
 Array::~Array()
 {
 	RemoveAt(0, mLength);
@@ -1909,7 +1965,8 @@ ObjectMember Array::sMembers[] =
 	Object_Method(InsertAt, 2, MAXP_VARIADIC),
 	Object_Method(Pop, 0, 0),
 	Object_Method(Push, 1, MAXP_VARIADIC),
-	Object_Method(RemoveAt, 1, 2)
+	Object_Method(RemoveAt, 1, 2),
+	Object_Method(Sort, 0, 2)
 };
 
 ResultType Array::Invoke(ResultToken &aResultToken, int aID, int aFlags, ExprTokenType *aParam[], int aParamCount)
@@ -2020,6 +2077,10 @@ ResultType Array::Invoke(ResultToken &aResultToken, int aID, int aFlags, ExprTok
 	case M___Enum:
 		_o_return(new IndexEnumerator(this, ParamIndexToOptionalInt(0, 1)
 			, static_cast<IndexEnumerator::Callback>(&Array::GetEnumItem)));
+
+	case M_Sort:
+		Sort(0, 0); // [FIXME] Handle parameters.
+		return OK;
 	}
 	return INVOKE_NOT_HANDLED;
 }
